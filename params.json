@@ -1,0 +1,173 @@
+{
+ "name": "Groove Bank FX",
+ "params": [
+  {
+   "key": "pattern",
+   "clamped": true,
+   "name": "GROOVE",
+   "min": 0,
+   "max": 599,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "type": "stepper"
+  },
+  {
+   "key": "variant",
+   "clamped": true,
+   "name": "VARIANT",
+   "min": 0,
+   "max": 5,
+   "default": 0,
+   "step": 1,
+   "display": "int"
+  },
+  {
+   "key": "swing",
+   "name": "SWING",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "step": 1,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "gate",
+   "name": "GATE",
+   "min": 5,
+   "max": 200,
+   "default": 80,
+   "step": 5,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "strum",
+   "name": "STRUM",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "step": 5,
+   "display": "int"
+  },
+  {
+   "key": "accent",
+   "name": "ACCENT",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "step": 5,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "latch",
+   "name": "LATCH",
+   "default": 0,
+   "step": 1,
+   "options": [
+    "OFF",
+    "ON"
+   ]
+  },
+  {
+   "key": "pattern_prev",
+   "name": "PREV GROOVE",
+   "momentary": true,
+   "step_of": "pattern",
+   "step_delta": -1
+  },
+  {
+   "key": "pattern_next",
+   "name": "NEXT GROOVE",
+   "momentary": true,
+   "step_of": "pattern",
+   "step_delta": 1
+  },
+  {
+   "key": "pattern_label",
+   "name": "GROOVE NAME",
+   "min": 0,
+   "max": 0,
+   "display": "string",
+   "type": "readout"
+  },
+  {
+   "key": "genre",
+   "clamped": true,
+   "name": "GENRE",
+   "default": 0,
+   "step": 1,
+   "options": [
+    "HOUSE",
+    "TECHNO",
+    "GARAGE",
+    "DNB",
+    "HIPHOP",
+    "TRAP",
+    "FUNK",
+    "SOUL",
+    "JAZZ",
+    "LATIN",
+    "REGGAE",
+    "ROCK",
+    "AFRO",
+    "WORLD"
+   ]
+  },
+  {
+   "key": "genre_prev",
+   "name": "PREV GENRE",
+   "momentary": true,
+   "step_of": "genre",
+   "step_delta": -1
+  },
+  {
+   "key": "genre_next",
+   "name": "NEXT GENRE",
+   "momentary": true,
+   "step_of": "genre",
+   "step_delta": 1
+  },
+  {
+   "key": "in_ch",
+   "name": "MIDI IN CH",
+   "default": 0,
+   "step": 1,
+   "options": [
+    "IN OMNI",
+    "IN CH 1",
+    "IN CH 2",
+    "IN CH 3",
+    "IN CH 4",
+    "IN CH 5",
+    "IN CH 6",
+    "IN CH 7",
+    "IN CH 8",
+    "IN CH 9",
+    "IN CH 10",
+    "IN CH 11",
+    "IN CH 12",
+    "IN CH 13",
+    "IN CH 14",
+    "IN CH 15",
+    "IN CH 16"
+   ]
+  },
+  {
+   "key": "in_ch_prev",
+   "name": "IN CH DOWN",
+   "momentary": true,
+   "step_of": "in_ch",
+   "step_delta": -1
+  },
+  {
+   "key": "in_ch_next",
+   "name": "IN CH UP",
+   "momentary": true,
+   "step_of": "in_ch",
+   "step_delta": 1
+  }
+ ]
+}
