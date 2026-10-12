@@ -11,12 +11,20 @@
  * Insert-effect build (vst.json "effect": true -> PLUG_EFFECT):
  * - The track's audio passes through unchanged (process()); the plugin adds no sound and no latency.
  * - The Force/MPC does not hand MIDI notes to an insert effect (tested on a Force with Oneiroi FX, 2026-10), so the
- *   plugin also opens an ALSA input port, "<name> MIDI In". Send a MIDI track (pads, keyboard or a clip) to that port;
+ *   plugin also opens an ALSA input port, "<name> MIDI In". Send a MIDI track (pads, keyboard or a clip) to that port
+ *   (its Output Port; works on a Force, 2026-10-09);
  *   its notes are the chord the groove plays. MIDI that does arrive through the VST (another host) is treated alike.
  * - "in_ch" filters both inputs: 0 = omni, 1..16 = that channel only.
- * - CC 20..27 on that channel move the controls (GENRE, GROOVE, VARIANT, SWING, GATE, STRUM, ACCENT, LATCH); the
+ * - CC 20..30 on that channel move the controls (GENRE, GROOVE, VARIANT, SWING, GATE, STRUM, ACCENT, LATCH, ROOT,
+ *   CHORD, OCTAVE); the
  *   screen follows through "display_rev" (HAS_DISPLAY_REV). Other CCs, bend and aftertouch pass through to the output.
  * - "genre" jumps to the first groove of a genre (the original's genre knob on Move, K8), read back from the groove.
+ * - Chord source ("src", v2). Confirmed on a Force 2026-10-09 (Oneiroi FX, same port code): a MIDI track whose Output
+ *   Port is the plugin's "MIDI In" plays the insert plugin.
+ *     0 INTERNAL  the chord is set on the plugin (ROOT, CHORD, OCTAVE); no routing at all. Input notes are ignored.
+ *     1 MIDI IN   notes from the plugin's own "MIDI In" port, from the VST input and from external USB MIDI devices.
+ *   Either way the plugin connects external USB MIDI devices to its MIDI In itself (for INTERNAL: their CCs) (kernel clients other than System, Midi Through and the Force's
+ *                 own "Akai" ports; rescanned every 3 s, so a keyboard plugged in later is found too).
  *
  * libasound is loaded at run time from the device (no ALSA headers needed to build); the event struct below is the
  * kernel's stable snd_seq_event_t layout (28 bytes on 32-bit ARM). */
@@ -39,6 +47,8 @@
 #define MAX_GENRES 32
 #define CC_FIRST 20                     /* CC 20.. -> cc_keys[] */
 #define MAX_IN_EVENTS 128               /* ALSA events read per block at most */
+#define RESCAN_FRAMES (3 * SR)          /* MIDI IN source: look for new USB MIDI devices this often */
+#define MAX_LINKS 32
 
 extern midi_fx_api_v1_t *move_midi_fx_init(const host_api_v1_t *host);
 
@@ -65,6 +75,16 @@ static struct {
     long (*me_encode)(void *, const unsigned char *, long, seq_ev_t *);
     void (*me_reset)(void *);
     void (*me_free)(void *);
+    /* finding and connecting external devices (optional: without them only the own port listens) */
+    int (*client_id)(void *);
+    int (*ci_malloc)(void **); void (*ci_free)(void *); void (*ci_set_client)(void *, int);
+    int (*ci_get_client)(const void *); int (*ci_get_type)(const void *); const char *(*ci_get_name)(void *);
+    int (*next_client)(void *, void *);
+    int (*pi_malloc)(void **); void (*pi_free)(void *); void (*pi_set_client)(void *, int); void (*pi_set_port)(void *, int);
+    int (*pi_get_port)(const void *); unsigned (*pi_get_cap)(const void *);
+    int (*next_port)(void *, void *);
+    int (*connect_from)(void *, int, int, int);
+    int scan_ok;
 } A;
 
 static void alsa_load(void) {
@@ -82,6 +102,25 @@ static void alsa_load(void) {
     A.me_encode = dlsym(h, "snd_midi_event_encode");
     A.me_reset = dlsym(h, "snd_midi_event_reset_encode");
     A.me_free = dlsym(h, "snd_midi_event_free");
+    A.client_id = dlsym(h, "snd_seq_client_id");
+    A.ci_malloc = dlsym(h, "snd_seq_client_info_malloc");
+    A.ci_free = dlsym(h, "snd_seq_client_info_free");
+    A.ci_set_client = dlsym(h, "snd_seq_client_info_set_client");
+    A.ci_get_client = dlsym(h, "snd_seq_client_info_get_client");
+    A.ci_get_type = dlsym(h, "snd_seq_client_info_get_type");
+    A.ci_get_name = dlsym(h, "snd_seq_client_info_get_name");
+    A.next_client = dlsym(h, "snd_seq_query_next_client");
+    A.pi_malloc = dlsym(h, "snd_seq_port_info_malloc");
+    A.pi_free = dlsym(h, "snd_seq_port_info_free");
+    A.pi_set_client = dlsym(h, "snd_seq_port_info_set_client");
+    A.pi_set_port = dlsym(h, "snd_seq_port_info_set_port");
+    A.pi_get_port = dlsym(h, "snd_seq_port_info_get_port");
+    A.pi_get_cap = dlsym(h, "snd_seq_port_info_get_capability");
+    A.next_port = dlsym(h, "snd_seq_query_next_port");
+    A.connect_from = dlsym(h, "snd_seq_connect_from");
+    A.scan_ok = A.client_id && A.ci_malloc && A.ci_free && A.ci_set_client && A.ci_get_client && A.ci_get_type &&
+                A.ci_get_name && A.next_client && A.pi_malloc && A.pi_free && A.pi_set_client && A.pi_set_port &&
+                A.pi_get_port && A.pi_get_cap && A.next_port && A.connect_from;
     A.ok = (A.open && A.set_name && A.port && A.out_direct && A.close && A.me_new && A.me_encode && A.me_reset && A.me_free) ? 1 : -1;
 }
 
@@ -95,6 +134,12 @@ typedef struct {
     long clock;              /* 24-PPQN ticks sent since Start */
     int in_ch;               /* 0 = omni, 1..16 */
     unsigned rev;            /* bumped when the plugin changes a value by itself (CC, genre) */
+    int src, root, chord, oct;   /* chord source (0 internal, 1 MIDI in) and the internal chord */
+    uint8_t inotes[8];       /* internal chord notes the module holds now */
+    int ninotes;
+    int rescan;              /* frames until the next device scan */
+    struct { unsigned char c, p, seen; } link[MAX_LINKS];   /* external ports connected to MIDI In */
+    int nlinks;
 } inst_t;
 
 static midi_fx_api_v1_t *api;
@@ -113,8 +158,19 @@ static const char *const OPT_GENRES[] = {"HOUSE", "TECHNO", "GARAGE", "DNB", "HI
                                          "LATIN", "REGGAE", "ROCK", "AFRO", "WORLD"};
 #define N_OPT_GENRES ((int)(sizeof OPT_GENRES / sizeof OPT_GENRES[0]))
 
+/* the internal chord: intervals over the root */
+static const struct { const char *name; signed char iv[6]; int n; } CHORDS[] = {
+    {"1 NOTE", {0}, 1}, {"5TH", {0, 7}, 2}, {"OCT", {0, 12}, 2}, {"MAJ", {0, 4, 7}, 3}, {"MIN", {0, 3, 7}, 3},
+    {"SUS2", {0, 2, 7}, 3}, {"SUS4", {0, 5, 7}, 3}, {"7", {0, 4, 7, 10}, 4}, {"MAJ7", {0, 4, 7, 11}, 4},
+    {"MIN7", {0, 3, 7, 10}, 4}, {"MIN9", {0, 3, 7, 10, 14}, 5}, {"DIM", {0, 3, 6}, 3}, {"AUG", {0, 4, 8}, 3},
+};
+#define N_CHORDS ((int)(sizeof CHORDS / sizeof CHORDS[0]))
+static const char *const NOTE_NAMES[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+#define N_OCT 6   /* OCT 0..5, Akai naming: note 60 = C3, so OCT n starts at 12 * (n + 2) */
+
 /* CC 20.. on the input channel -> these keys (the Q-Link order, LATCH last instead of MIDI IN CH). */
-static const char *const cc_keys[] = {"genre", "pattern", "variant", "swing", "gate", "strum", "accent", "latch"};
+static const char *const cc_keys[] = {"genre", "pattern", "variant", "swing", "gate", "strum", "accent", "latch",
+                                      "root", "chord", "oct"};
 #define N_CC ((int)(sizeof cc_keys / sizeof cc_keys[0]))
 
 static int dbg = -1;   /* MIDIFX_DEBUG=1: print what goes out (offline tests: no ALSA there) */
@@ -142,6 +198,91 @@ static void feed(inst_t *in, const uint8_t *m, int len) {
     uint8_t out[MAX_OUT][3];
     int lens[MAX_OUT];
     emit(in, out, lens, api->process_midi(in->mod, m, len, out, lens, MAX_OUT));
+}
+
+/* ---- internal chord ---------------------------------------------------------------------------------------------- */
+static void note_to_module(inst_t *in, uint8_t status, uint8_t n) { uint8_t m[3] = {status, n, status == 0x90 ? 100 : 0}; feed(in, m, 3); }
+
+/* Release everything the module holds (all 128 keys: external notes may still be down), then hold the internal chord.
+ * A fresh press with nothing down also replaces a latched chord in the module. */
+static void chord_apply(inst_t *in) {
+    for (int n = 0; n < 128; n++) note_to_module(in, 0x80, (uint8_t)n);
+    in->ninotes = 0;
+    if (in->src != 0) return;
+    int base = 12 * (in->oct + 2) + in->root;
+    for (int i = 0; i < CHORDS[in->chord].n && in->ninotes < 8; i++) {
+        int n = base + CHORDS[in->chord].iv[i];
+        if (n < 0 || n > 127) continue;
+        in->inotes[in->ninotes++] = (uint8_t)n;
+        note_to_module(in, 0x90, (uint8_t)n);
+    }
+}
+
+static int chord_label(inst_t *in, char *b, int n) {
+    if (in->src != 0) return snprintf(b, n, "MIDI IN  %s", in->nlinks ? "+ USB DEVICES" : "PORT ONLY");
+    int off = snprintf(b, n, "%s %s  ", NOTE_NAMES[in->root], CHORDS[in->chord].name);
+    for (int i = 0; i < in->ninotes && off < n - 1; i++)
+        off += snprintf(b + off, n - off, "%s%s%d", i ? " " : "", NOTE_NAMES[in->inotes[i] % 12], in->inotes[i] / 12 - 2);
+    return off;
+}
+
+/* ---- live step display (16-STEP PATTERN bar) --------------------------------------------------------------------
+ * "step_1".."step_16": state of each shown step + 5 if it is the one playing (images/steps.png frames); state 0 rest,
+ * 1 ghost, 2 hit, 3 accent, 4 tie. A 32-step groove shows the bar that is playing (the first when stopped).
+ * "step_label": STEP nn / 16|32. The playhead is in "display_rev", so the wrapper reports a step as it changes. */
+static int mod_int(inst_t *in, const char *k, int dflt);
+static int playing_step(inst_t *in, int steps) {   /* the step sounding now, -1 when stopped */
+    if (!mod_int(in, "playing", 0) || steps < 1) return -1;
+    return (mod_int(in, "play_step", 0) - 1 + steps) % steps;   /* the module holds the NEXT step to fire */
+}
+static int step_view(inst_t *in, int n /* 1..16 */) {
+    char row[80];
+    int steps = mod_int(in, "steps", 16);
+    if (!api->get_param || api->get_param(in->mod, "row0", row, sizeof row) <= 0) return 0;
+    int cur = playing_step(in, steps);
+    int s = (cur >= 16 ? 16 : 0) + n - 1;
+    if (s >= steps || s >= (int)strlen(row)) return 0;
+    char c = row[s];
+    int st = c == '.' ? 0 : c == 'g' || c == 'G' ? 1 : c == 'A' ? 3 : c == '-' ? 4 : 2;
+    return st + (s == cur ? 5 : 0);
+}
+
+/* ---- external USB MIDI devices -> MIDI In ------------------------------------------------------------------------- */
+static void scan_devices(inst_t *in) {
+    if (!in->seq || in->in_port < 0 || !A.scan_ok) return;
+    void *ci = NULL, *pi = NULL;
+    if (A.ci_malloc(&ci) < 0 || A.pi_malloc(&pi) < 0) { if (ci) A.ci_free(ci); return; }
+    int me = A.client_id(in->seq);
+    for (int i = 0; i < in->nlinks; i++) in->link[i].seen = 0;
+    A.ci_set_client(ci, -1);
+    while (A.next_client(in->seq, ci) >= 0) {
+        int c = A.ci_get_client(ci);
+        const char *name = A.ci_get_name(ci);
+        /* kernel clients only (2 = SND_SEQ_KERNEL_CLIENT): USB/DIN devices; not System (0), Midi Through (14),
+         * the Force's own "Akai ..." ports (its surface and its USB port to a computer) or ourselves */
+        if (c == me || c == 0 || c == 14 || A.ci_get_type(ci) != 2) continue;
+        if (name && (strstr(name, "Akai") || strstr(name, "AKAI") || strstr(name, "Through"))) continue;
+        A.pi_set_client(pi, c);
+        A.pi_set_port(pi, -1);
+        while (A.next_port(in->seq, pi) >= 0) {
+            unsigned cap = A.pi_get_cap(pi);
+            int p = A.pi_get_port(pi);
+            if ((cap & ((1u << 0) | (1u << 5))) != ((1u << 0) | (1u << 5))) continue;   /* READ | SUBS_READ */
+            int k;
+            for (k = 0; k < in->nlinks; k++)
+                if (in->link[k].c == c && in->link[k].p == p) break;
+            if (k < in->nlinks) { in->link[k].seen = 1; continue; }
+            if (in->nlinks < MAX_LINKS && A.connect_from(in->seq, in->in_port, c, p) >= 0) {
+                in->link[in->nlinks].c = (unsigned char)c;
+                in->link[in->nlinks].p = (unsigned char)p;
+                in->link[in->nlinks++].seen = 1;
+            }
+        }
+    }
+    for (int i = 0; i < in->nlinks;)   /* gone (unplugged): forget, so it is connected again when it comes back */
+        if (!in->link[i].seen) in->link[i] = in->link[--in->nlinks]; else i++;
+    A.pi_free(pi);
+    A.ci_free(ci);
 }
 
 /* host callbacks (one host, so the transport is global; the current instance's values are mirrored in) */
@@ -211,6 +352,7 @@ static void genre_set(inst_t *in, int idx) {
     }
 }
 
+static void set_param_inst(inst_t *in, const char *k, const char *v);
 /* a CC value 0..127 onto a control */
 static void cc_apply(inst_t *in, int which, int v) {
     const char *k = cc_keys[which];
@@ -223,6 +365,12 @@ static void cc_apply(inst_t *in, int which, int v) {
     else if (!strcmp(k, "strum")) mod_set_int(in, k, -100 + 5 * (int)lroundf(f * 40));
     else if (!strcmp(k, "accent")) mod_set_int(in, k, 5 * (int)lroundf(f * 20));
     else if (!strcmp(k, "latch")) mod_set_int(in, k, v >= 64);
+    else {   /* root / chord / oct */
+        char b[8];
+        int hi = !strcmp(k, "root") ? 11 : !strcmp(k, "chord") ? N_CHORDS - 1 : N_OCT - 1;
+        snprintf(b, sizeof b, "%d", (int)lroundf(f * hi));
+        set_param_inst(in, k, b);
+    }
     in->rev++;
 }
 
@@ -235,6 +383,7 @@ static void handle_in(inst_t *in, const uint8_t *m, int len) {
             cc_apply(in, m[1] - CC_FIRST, m[2]);
             return;
         }
+        if (in->src == 0 && ((m[0] & 0xF0) == 0x80 || (m[0] & 0xF0) == 0x90)) return;   /* internal chord: notes ignored */
     }
     feed(in, m, len);
 }
@@ -275,6 +424,7 @@ static void *create(const char *dir) {
     in->bpm = 120;
     in->ppq = -1;
     in->port = in->in_port = -1;
+    in->src = 0; in->root = 2; in->chord = 4; in->oct = 2;   /* D minor, D2 (params.json defaults) */
     g_cur = in;
     in->mod = api->create_instance(dir && dir[0] ? dir : MODULE_DIR, NULL);
     g_cur = NULL;
@@ -314,6 +464,9 @@ static void *create(const char *dir) {
         if (A.nonblock) A.nonblock(in->seq, 1);
         if (in->port < 0 || A.me_new(64, &in->enc) < 0) { A.close(in->seq); in->seq = NULL; in->port = in->in_port = -1; }
     }
+    g_cur = in;
+    chord_apply(in);
+    g_cur = NULL;
     return in;
 }
 
@@ -335,19 +488,41 @@ static void midi(void *p, const uint8_t *m, int len) {
 }
 
 /* the plugin's own state (in_ch) rides along in the module's JSON state */
+static void set_param_inst(inst_t *in, const char *k, const char *v) {
+    if (!strcmp(k, "genre")) genre_set(in, atoi(v));
+    else if (!strcmp(k, "in_ch")) { int c = atoi(v); in->in_ch = c < 0 ? 0 : c > 16 ? 16 : c; }
+    else if (!strcmp(k, "src") || !strcmp(k, "root") || !strcmp(k, "chord") || !strcmp(k, "oct")) {
+        int x = atoi(v);
+        int *dst = !strcmp(k, "src") ? &in->src : !strcmp(k, "root") ? &in->root : !strcmp(k, "chord") ? &in->chord : &in->oct;
+        int hi = dst == &in->src ? 1 : dst == &in->root ? 11 : dst == &in->chord ? N_CHORDS - 1 : N_OCT - 1;
+        x = x < 0 ? 0 : x > hi ? hi : x;
+        if (x != *dst) {
+            *dst = x;
+            chord_apply(in);
+            if (dst == &in->src && x == 1) { in->rescan = 0; scan_devices(in); }
+        }
+    }
+    else if (strstr(k, "_prev") || strstr(k, "_next")) { /* stepper arrows: the wrapper steps their param */ }
+    else if (!strncmp(k, "step_", 5)) { /* display only */ }
+    else {
+        if (!strcmp(k, "state")) {
+            static const char *const keys[] = {"\"in_ch\"", "\"src\"", "\"root\"", "\"chord\"", "\"oct\""};
+            static const int his[] = {16, 1, 11, N_CHORDS - 1, N_OCT - 1};
+            int *dsts[] = {&in->in_ch, &in->src, &in->root, &in->chord, &in->oct};
+            for (int i = 0; i < 5; i++) {
+                const char *s = strstr(v, keys[i]);
+                if (s && (s = strchr(s, ':'))) { int c = atoi(s + 1); *dsts[i] = c < 0 ? 0 : c > his[i] ? his[i] : c; }
+            }
+        }
+        api->set_param(in->mod, k, v);
+        if (!strcmp(k, "state")) { chord_apply(in); in->rev++; }
+    }
+}
+
 static void set_param(void *p, const char *k, const char *v) {
     inst_t *in = p;
     g_cur = in;
-    if (!strcmp(k, "genre")) genre_set(in, atoi(v));
-    else if (!strcmp(k, "in_ch")) { int c = atoi(v); in->in_ch = c < 0 ? 0 : c > 16 ? 16 : c; }
-    else if (!strncmp(k, "in_ch_", 6) || !strncmp(k, "genre_", 6)) { /* prev/next arrows: the wrapper steps them */ }
-    else {
-        if (!strcmp(k, "state")) {
-            const char *s = strstr(v, "\"in_ch\"");
-            if (s && (s = strchr(s, ':'))) { int c = atoi(s + 1); in->in_ch = c < 0 ? 0 : c > 16 ? 16 : c; }
-        }
-        api->set_param(in->mod, k, v);
-    }
+    set_param_inst(in, k, v);
     g_cur = NULL;
 }
 
@@ -355,14 +530,27 @@ static int get_param(void *p, const char *k, char *b, int n) {
     inst_t *in = p;
     if (!strcmp(k, "genre")) { int g = genre_get(in); return snprintf(b, n, "%d", g < 0 ? 0 : g); }
     if (!strcmp(k, "in_ch")) return snprintf(b, n, "%d", in->in_ch);
-    if (!strcmp(k, "display_rev")) return snprintf(b, n, "%u.%d", in->rev, mod_int(in, "preview_rev", 0));
+    if (!strcmp(k, "src")) return snprintf(b, n, "%d", in->src);
+    if (!strcmp(k, "root")) return snprintf(b, n, "%d", in->root);
+    if (!strcmp(k, "chord")) return snprintf(b, n, "%d", in->chord);
+    if (!strcmp(k, "oct")) return snprintf(b, n, "%d", in->oct);
+    if (!strcmp(k, "chord_label")) return chord_label(in, b, n);
+    if (!strncmp(k, "step_", 5) && k[5] >= '1' && k[5] <= '9') return snprintf(b, n, "%d", step_view(in, atoi(k + 5)));
+    if (!strcmp(k, "step_label")) {
+        int steps = mod_int(in, "steps", 16), cur = playing_step(in, steps);
+        return cur < 0 ? snprintf(b, n, "STEP -- / %d", steps) : snprintf(b, n, "STEP %02d / %d", cur + 1, steps);
+    }
+    if (!strcmp(k, "display_rev"))   /* + the playhead, so the step cells follow it */
+        return snprintf(b, n, "%u.%d.%d.%d", in->rev, mod_int(in, "preview_rev", 0), mod_int(in, "play_step", 0),
+                        mod_int(in, "playing", 0));
     if (!api->get_param) return -1;
     int r = api->get_param(in->mod, k, b, n);
     if (r > 0 && !strcmp(k, "state")) {   /* {"pattern":..} -> {"pattern":..,"in_ch":n} */
         char *end = strrchr(b, '}');
         if (end) {
             int at = (int)(end - b);
-            int w = snprintf(end, n - at, ",\"in_ch\":%d}", in->in_ch);
+            int w = snprintf(end, n - at, ",\"in_ch\":%d,\"src\":%d,\"root\":%d,\"chord\":%d,\"oct\":%d}",
+                             in->in_ch, in->src, in->root, in->chord, in->oct);
             if (w > 0 && w < n - at) r = at + w;
             else { b[at] = '}'; b[at + 1] = 0; r = at + 1; }   /* no room: the module's own state */
         }
@@ -399,6 +587,7 @@ void mpc_engine_transport(void *p, double bpm, double ppq, int playing) {
 /* one block of sequencing: input notes, clock ticks inside the block, the module's tick */
 static void run(inst_t *in, int frames) {
     g_cur = in;
+    if ((in->rescan -= frames) <= 0) { in->rescan = RESCAN_FRAMES; scan_devices(in); }   /* both sources: CCs */
     poll_alsa_in(in);
     g_bpm = in->bpm;
     g_running = in->running;

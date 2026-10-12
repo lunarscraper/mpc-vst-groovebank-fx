@@ -4,3 +4,6 @@ vendored 2026-10-01: upstream src/ as src/ + LICENSE;
 mpc/ = steve/tools/midifx adapter (MIDI out via an ALSA port, host transport as MIDI clock) + Schwung host headers + wrapper/engine.h
 2026-10-09: insert-effect build (Groove Bank FX): mpc/schwung_midi_fx.c gains process() (audio through), an ALSA
 MIDI In port, MIDI IN CH, GENRE and CC 20-27; mpc/engine.h updated to the framework's (with process); new uid GrvF.
+2026-10-09 v2: chord source (INTERNAL: ROOT/CHORD/OCTAVE on the plugin; MIDI IN: own port + external USB MIDI devices,
+connected by the plugin), CC 28-30, chord readout; after the Force test (no MIDI track -> plugin routing).
+2026-10-11 v3: live 16-STEP PATTERN bar (step_1..16 display params, playhead) + STEP readout; mock data texts removed.

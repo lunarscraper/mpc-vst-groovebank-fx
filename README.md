@@ -11,26 +11,48 @@ als Insert-Effekt, belegt also keinen der 8 Instrument-Plugin-Plätze der Force.
 | | Groove Bank (Instrument) | Groove Bank FX (Insert) |
 |---|---|---|
 | Plugin-Liste | `[SEQ] Groove Bank`, uid `GrvB` | `[SEQ] Groove Bank FX`, uid `GrvF`, Kategorie Effect |
-| Akkord-Eingang | Noten der eigenen Spur | eigener MIDI-Port **`[SEQ] Groove Bank FX MIDI In`** (die Force gibt Insert-Effekten keine Noten) |
+| Akkord-Eingang | Noten der eigenen Spur | **INTERNAL** (Standard): Akkord am Plugin einstellen (ROOT, CHORD, OCTAVE) · **MIDI IN**: externe USB-MIDI-Geräte (verbindet das Plugin selbst) und eigener Port `… MIDI In` |
 | Ausgang | Port `… MIDI Out` | Port **`[SEQ] Groove Bank FX MIDI Out`** (unverändert) |
 | Audio | Stille | Spur-Audio unverändert durch, keine Latenz |
-| Neu | – | **GENRE** (springt zum ersten Groove eines Genres, wie Knob 8 am Move), **MIDI IN CH** (Omni/1–16), **CC 20–27** |
-| Q-Links | VARIANT, SWING, GATE · STRUM, ACCENT, LATCH · GROOVE | GENRE, GROOVE · VARIANT, SWING · GATE, STRUM · ACCENT, MIDI IN CH (nur Regler, LATCH nur per Touch) |
+| Neu | – | **GENRE** (springt zum ersten Groove eines Genres, wie Knob 8 am Move), **Akkordquelle**, **MIDI IN CH** (Omni/1–16), **CC 20–30** |
+| Q-Links | VARIANT, SWING, GATE · STRUM, ACCENT, LATCH · GROOVE | Bank 1: GENRE, GROOVE, VARIANT, SWING, GATE, STRUM, ACCENT, MIDI IN CH · Bank 2: ROOT, CHORD, OCTAVE (nur Regler; LATCH und SOURCE per Touch) |
 
 Beide Plugins können nebeneinander installiert sein (eigener Ordner, eigene uid).
 
 ## Auf der Force einrichten
 
-1. **Insert setzen:** Groove Bank FX als Insert-Effekt auf eine beliebige Spur legen – am einfachsten auf die Synth-Spur,
-   die den Groove spielen soll. Ihr Audio läuft unverändert durch.
-2. **Ports freischalten:** *Menu → Preferences → MIDI*: bei **`[SEQ] Groove Bank FX MIDI Out`** (Eingang) **Track**
-   einschalten; falls **`[SEQ] Groove Bank FX MIDI In`** in der Ausgangsliste auftaucht, dort ebenfalls.
-3. **Akkordquelle:** eine MIDI-Spur anlegen, deren **MIDI Out** auf `[SEQ] Groove Bank FX MIDI In` zeigt (Kanal passend zu
-   MIDI IN CH, bei IN OMNI egal). Darauf Pads/Keyboard spielen oder einen Clip mit gehaltenen Akkorden laufen lassen.
-4. **Zielspur(en):** **MIDI Input** = `[SEQ] Groove Bank FX MIDI Out`, **Monitor** = **In** (nicht Auto).
-5. **Play drücken:** Der Groove läuft im Force-Tempo und folgt dem Transport. Akkord halten – oder LATCH einschalten.
+Zwei Wege, den Akkord vorzugeben – beide auf der Force nutzbar:
 
-Ohne laufenden Transport spielt Groove Bank nichts (wie im Original).
+- **Interner Akkord** (Standard, `CHORD: INTERNAL`): ROOT, CHORD, OCTAVE im Plugin, keine MIDI-Verbindung nötig.
+- **Von einer MIDI-Spur** (`CHORD: MIDI IN`): eine MIDI-Spur sendet an den Port **`[SEQ] Groove Bank FX MIDI In`**.
+  Auf der Force bestätigt am 2026-10-09 mit Oneiroi FX (gleicher Port-Mechanismus): MIDI-Spur → Output Port
+  „Oneiroi FX MIDI In“ → die Noten spielen im Insert-Plugin.
+
+### Interner Akkord
+
+1. **Insert setzen:** Groove Bank FX als Insert-Effekt auf die Synth-Spur legen, die den Groove spielen soll (oder auf
+   irgendeine Spur mit Audio). Das Audio läuft unverändert durch.
+2. **Ausgang freischalten:** *Menu → Preferences → MIDI*: bei **`[SEQ] Groove Bank FX MIDI Out`** (Input Ports) **Track**
+   einschalten (mit „Enable MIDI ports when discovered“ geschieht das von selbst).
+3. **Zielspur(en):** **MIDI Input** = `[SEQ] Groove Bank FX MIDI Out`, **Monitor** = **In** (nicht Auto).
+4. **Akkord wählen:** rechts oben ROOT, CHORD, OCTAVE (Standard: D MIN, D2 F2 A2). Die Zeile darunter zeigt die Noten.
+5. **Play drücken:** Der Groove läuft im Force-Tempo und folgt dem Transport.
+
+Akkordwechsel im Song: ROOT/CHORD/OCTAVE sind automatisierbar (Q-Link-Bank 2) oder per CC 28–30 schaltbar.
+
+### Akkord von einer MIDI-Spur (Clip, Pads, Keyboard)
+
+1. Groove Bank FX als Insert setzen und die Zielspur wie oben (Schritte 1–3) einrichten.
+2. Am Plugin **SOURCE** auf **`CHORD: MIDI IN`** stellen.
+3. Eine **separate MIDI-Spur** anlegen: **Output Port** = **`[SEQ] Groove Bank FX MIDI In`** (Kanal passend zu
+   MIDI IN CH; bei IN OMNI egal). Darauf Akkorde spielen oder einen Clip mit Akkordwechseln laufen lassen.
+4. Play drücken: Groove Bank spielt die gehaltenen Akkorde im Groove an die Zielspur(en).
+
+Der MIDI-Input-Port der Zielspur bleibt `[SEQ] Groove Bank FX MIDI Out` – nicht die MIDI-Spur selbst.
+
+Externe USB-MIDI-Geräte (z. B. Circuit Tracks) verbindet das Plugin alle 3 s selbst mit seinem MIDI In (nicht die
+Force-eigenen Ports); ihre Noten zählen in `CHORD: MIDI IN`, ihre CCs in beiden Stellungen. Die Anzeige zeigt dann
+„+ USB DEVICES“.
 
 ## Bedienung
 
@@ -38,14 +60,23 @@ Ohne laufenden Transport spielt Groove Bank nichts (wie im Original).
   springt zum ersten Groove des Genres und zeigt immer das Genre des aktuellen Grooves.
 - **GROOVE** (Stepper darunter): alle 97 Grooves der Reihe nach, Anzeige „Name GENRE“.
 - **VARIANT, SWING, GATE, STRUM, ACCENT** wie im Original; **LATCH** hält den Akkord nach dem Loslassen.
-- **MIDI IN CH** (unten rechts): `IN OMNI` oder `IN CH 1…16` – filtert Noten **und** CCs am MIDI-In-Port. Bei mehreren
+- **16-STEP PATTERN** (Leiste links): zeigt live den gewählten Groove in der gewählten Variante – leer = Pause,
+  flacher Balken = Ghost, mittlerer = Schlag, hoher = Akzent, durchgehendes Band = gehaltene Note. Der gerade
+  gespielte Schritt ist orange umrandet, daneben „STEP nn / 16“. Nur Anzeige (die Grooves haben kein Microtiming).
+- **ROOT / CHORD / OCTAVE** (rechts oben): Grundton C…B; Akkord 1 NOTE, 5TH, OCT, MAJ, MIN, SUS2, SUS4, 7, MAJ7, MIN7,
+  MIN9, DIM, AUG; OCT 0–5 (Akai-Zählung, Note 60 = C3).
+- **SOURCE:** `CHORD: INTERNAL` (Standard, keine Verbindung nötig) oder `CHORD: MIDI IN` (externe USB-Geräte + Port).
+- **MIDI IN CH** (unten rechts): `IN OMNI` oder `IN CH 1…16` – filtert Noten **und** CCs. Bei mehreren
   Sequencer-Plugins bekommt so jedes seinen eigenen Kanal.
 
-### CC-Steuerung (auf dem MIDI-IN-CH-Kanal, über den MIDI-In-Port)
+### CC-Steuerung (auf dem MIDI-IN-CH-Kanal, von externen USB-Geräten oder über den MIDI-In-Port)
 
-| CC | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 |
-|---|---|---|---|---|---|---|---|---|
-| Ziel | GENRE | GROOVE | VARIANT | SWING | GATE | STRUM | ACCENT | LATCH (≥ 64 = an) |
+| CC | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Ziel | GENRE | GROOVE | VARIANT | SWING | GATE | STRUM | ACCENT | LATCH (≥ 64 = an) | ROOT | CHORD | OCTAVE |
+
+CCs von angeschlossenen USB-MIDI-Geräten (z. B. Faderfox, Circuit Tracks) wirken in beiden SOURCE-Stellungen; in
+INTERNAL werden nur deren Noten ignoriert.
 
 Der Bildschirm folgt den CC-Änderungen. Alle anderen CCs, Pitchbend und Aftertouch gehen an den Ausgang weiter
 (zum Zielsynth), wie im Original.
@@ -84,10 +115,11 @@ rm -rf build/groovebank && cp -R library build/groovebank && bash "$MPC_VST/tool
 ## Stand
 
 - Offline-Host-Test (ASan/UBSan, x86): **PASSED** – u. a. Audio läuft durch, NULL-Eingang, Q-Link-Weg, Chunk-Restore.
-- Eigener Funktionstest: Genre-Sprung, CC 20–27, Kanalfilter, State mit `in_ch`, Groove-Ausgabe auf gehaltenen Akkord.
+- Eigener Funktionstest: interner Akkord spielt ohne jede MIDI-Eingabe (D MIN → D2 F2 A2), Akkordwechsel per CC 29,
+  Eingangsnoten werden in INTERNAL ignoriert, Umschalten auf MIDI IN, Genre-Sprung, CC 20–27, Kanalfilter, State.
 - Skin lokal gebaut, keine Warnungen von `skin_check`.
-- **Noch offen auf der Force:** ob sie den Port `… MIDI In` als Ziel einer MIDI-Spur anbietet (gleicher Ansatz wie bei
-  Oneiroi FX) und ob die Force-Q-Link-Bank alle acht Regler auf einmal zeigt.
+- **Noch offen auf der Force:** interner Akkord (sollte ohne Routing laufen), automatische Verbindung zu USB-MIDI-Geräten,
+  Q-Link-Banken.
 
 ## Dateien
 
@@ -97,7 +129,7 @@ rm -rf build/groovebank && cp -R library build/groovebank && bash "$MPC_VST/tool
 | `mpc/engine.h` | Engine-Schnittstelle des Frameworks (mit `process` für Effekte) |
 | `src/` | die Engine, unverändert vom Upstream |
 | `vst.json` | `"effect": true`, uid `GrvF`, `HAS_DISPLAY_REV` |
-| `params.json` | 16 Parameter (die ersten 10 wie beim Instrument, dann GENRE, MIDI IN CH und deren Pfeile) |
+| `params.json` | 46 Parameter (die ersten 10 wie beim Instrument, dann GENRE, MIDI IN CH, Akkordquelle, Pfeile, 16 Anzeige-Parameter „VIEW STEP“ und STEP) |
 | `layout.conf` | Bildschirm; `design/fx_bg_edit.py` hat dafür Platz im Hintergrundbild geschaffen |
 | `release/` | Bibliothek: Quelle und Commit (`library.json`), Abruf-Skript |
 

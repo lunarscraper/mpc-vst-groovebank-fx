@@ -168,6 +168,303 @@
    "momentary": true,
    "step_of": "in_ch",
    "step_delta": 1
+  },
+  {
+   "key": "src",
+   "name": "CHORD SOURCE",
+   "default": 0,
+   "step": 1,
+   "options": [
+    "CHORD: INTERNAL",
+    "CHORD: MIDI IN"
+   ]
+  },
+  {
+   "key": "root",
+   "name": "ROOT",
+   "default": 2,
+   "step": 1,
+   "options": [
+    "ROOT C",
+    "ROOT C#",
+    "ROOT D",
+    "ROOT D#",
+    "ROOT E",
+    "ROOT F",
+    "ROOT F#",
+    "ROOT G",
+    "ROOT G#",
+    "ROOT A",
+    "ROOT A#",
+    "ROOT B"
+   ]
+  },
+  {
+   "key": "chord",
+   "name": "CHORD",
+   "default": 4,
+   "step": 1,
+   "options": [
+    "CHORD 1 NOTE",
+    "CHORD 5TH",
+    "CHORD OCT",
+    "CHORD MAJ",
+    "CHORD MIN",
+    "CHORD SUS2",
+    "CHORD SUS4",
+    "CHORD 7",
+    "CHORD MAJ7",
+    "CHORD MIN7",
+    "CHORD MIN9",
+    "CHORD DIM",
+    "CHORD AUG"
+   ]
+  },
+  {
+   "key": "oct",
+   "name": "OCTAVE",
+   "default": 2,
+   "step": 1,
+   "options": [
+    "OCT 0",
+    "OCT 1",
+    "OCT 2",
+    "OCT 3",
+    "OCT 4",
+    "OCT 5"
+   ]
+  },
+  {
+   "key": "chord_label",
+   "name": "CHORD NOTES",
+   "min": 0,
+   "max": 0,
+   "display": "string",
+   "type": "readout"
+  },
+  {
+   "key": "src_prev",
+   "name": "SOURCE DOWN",
+   "momentary": true,
+   "step_of": "src",
+   "step_delta": -1
+  },
+  {
+   "key": "src_next",
+   "name": "SOURCE UP",
+   "momentary": true,
+   "step_of": "src",
+   "step_delta": 1
+  },
+  {
+   "key": "root_prev",
+   "name": "ROOT DOWN",
+   "momentary": true,
+   "step_of": "root",
+   "step_delta": -1
+  },
+  {
+   "key": "root_next",
+   "name": "ROOT UP",
+   "momentary": true,
+   "step_of": "root",
+   "step_delta": 1
+  },
+  {
+   "key": "chord_prev",
+   "name": "CHORD DOWN",
+   "momentary": true,
+   "step_of": "chord",
+   "step_delta": -1
+  },
+  {
+   "key": "chord_next",
+   "name": "CHORD UP",
+   "momentary": true,
+   "step_of": "chord",
+   "step_delta": 1
+  },
+  {
+   "key": "oct_prev",
+   "name": "OCTAVE DOWN",
+   "momentary": true,
+   "step_of": "oct",
+   "step_delta": -1
+  },
+  {
+   "key": "oct_next",
+   "name": "OCTAVE UP",
+   "momentary": true,
+   "step_of": "oct",
+   "step_delta": 1
+  },
+  {
+   "key": "step_1",
+   "name": "VIEW STEP 1",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_2",
+   "name": "VIEW STEP 2",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_3",
+   "name": "VIEW STEP 3",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_4",
+   "name": "VIEW STEP 4",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_5",
+   "name": "VIEW STEP 5",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_6",
+   "name": "VIEW STEP 6",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_7",
+   "name": "VIEW STEP 7",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_8",
+   "name": "VIEW STEP 8",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_9",
+   "name": "VIEW STEP 9",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_10",
+   "name": "VIEW STEP 10",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_11",
+   "name": "VIEW STEP 11",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_12",
+   "name": "VIEW STEP 12",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_13",
+   "name": "VIEW STEP 13",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_14",
+   "name": "VIEW STEP 14",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_15",
+   "name": "VIEW STEP 15",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_16",
+   "name": "VIEW STEP 16",
+   "min": 0,
+   "max": 9,
+   "default": 0,
+   "step": 1,
+   "display": "int",
+   "clamped": true
+  },
+  {
+   "key": "step_label",
+   "name": "STEP",
+   "min": 0,
+   "max": 0,
+   "display": "string",
+   "type": "readout"
   }
  ]
 }

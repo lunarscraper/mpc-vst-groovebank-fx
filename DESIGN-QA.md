@@ -28,3 +28,5 @@ Offline test PASSED; check_skin OK; no Q-Link outlines overlap (qlink_overlay.py
 - SYNC MULTIPLIER box (right) cleared; MIDI IN CH stepper there, `qbox=no` (away from its Q-Link column).
 - Q-Links: 4 columns of 2 (GENRE/GROOVE · VARIANT/SWING · GATE/STRUM · ACCENT/MIDI IN CH), no switch; LATCH touch-only.
 - Offline host test PASSED, skin built without skin_check warnings. Device check open.
+- v2: right-top mock monitor cleared; ROOT/CHORD/OCTAVE/SOURCE steppers and a notes readout there (Q-Link bank 2).
+- v3: bar caption "16-STEP PATTERN", 16 live meters (images/steps.png), STEP readout (box=0); STEP TICKS, IN/OUT ACTIVE, SERIAL, FIRMWARE texts removed.
